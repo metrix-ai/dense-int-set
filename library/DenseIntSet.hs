@@ -29,8 +29,12 @@ union (IntSetUnion minLength vecs) = IntSet (BitVec.unions minLength vecs)
 data IntSetIntersection = IntSetIntersection !Int [BitVector]
 
 instance Semigroup IntSetIntersection where
-  (<>) (IntSetIntersection leftMinLength leftVecs) (IntSetIntersection rightMinLength rightVecs) =
-    IntSetIntersection (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
+  (<>) (IntSetIntersection leftMinLength leftVecs) =
+    if null leftVecs
+      then id
+      else \ (IntSetIntersection rightMinLength rightVecs) -> if null rightVecs
+        then IntSetIntersection leftMinLength leftVecs
+        else IntSetIntersection (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
 
 instance Monoid IntSetIntersection where
   mempty = IntSetIntersection 0 []
