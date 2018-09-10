@@ -125,5 +125,5 @@ composedList :: [DenseIntSet] -> DenseIntSetComposition
 composedList list = if null list
   then mempty
   else let
-    bitVecList = fmap (\ (DenseIntSet x) -> x) list
-    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length bitVecList)) bitVecList
+    unboxedVectorList = fmap (\ (DenseIntSet x) -> x) list
+    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length unboxedVectorList)) unboxedVectorList
