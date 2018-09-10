@@ -9,38 +9,38 @@ import qualified Data.Vector.Generic.Mutable as MutableGenericVector
 import qualified Data.Vector.Algorithms.Intro as IntroVectorAlgorithm
 
 
--- * IntSet
+-- * DenseIntSet
 -------------------------
 
 {-|
 Since there's multiple ways to implement a monoid for this data-structure,
-the instances are provided for "IntSetComposition", which
+the instances are provided for "DenseIntSetComposition", which
 is open for interpretation of how to compose.
 -}
-newtype IntSet = IntSet (UnboxedVector Word64)
+newtype DenseIntSet = DenseIntSet (UnboxedVector Word64)
 
 
 -- * Constructors
 -------------------------
 
-intersection :: IntSetComposition -> IntSet
-intersection (IntSetComposition minLength vecs) = undefined
+intersection :: DenseIntSetComposition -> DenseIntSet
+intersection (DenseIntSetComposition minLength vecs) = undefined
 
-union :: IntSetComposition -> IntSet
-union (IntSetComposition minLength vecs) = undefined
+union :: DenseIntSetComposition -> DenseIntSet
+union (DenseIntSetComposition minLength vecs) = undefined
 
 
 -- * Accessors
 -------------------------
 
-size :: IntSet -> Int
-size (IntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
+size :: DenseIntSet -> Int
+size (DenseIntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
 
 
 -- ** Vectors
 -------------------------
 
-presentElementsVector :: GenericVector.Vector vector Int => IntSet -> vector Int
+presentElementsVector :: GenericVector.Vector vector Int => DenseIntSet -> vector Int
 presentElementsVector intSet = let
   sizeVal = size intSet
   unfoldr = Unfoldr.zipWithIndex (presentElementsUnfoldr intSet)
@@ -53,14 +53,14 @@ presentElementsVector intSet = let
 -- ** Unfoldr
 -------------------------
 
-presentElementsUnfoldr :: IntSet -> Unfoldr Int
-presentElementsUnfoldr (IntSet vec) = do
+presentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
+presentElementsUnfoldr (DenseIntSet vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
   bitIndex <- Unfoldr.setBitIndices word
   return (wordIndex * 64 + bitIndex)
 
-absentElementsUnfoldr :: IntSet -> Unfoldr Int
-absentElementsUnfoldr (IntSet vec) = do
+absentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
+absentElementsUnfoldr (DenseIntSet vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
   bitIndex <- Unfoldr.unsetBitIndices word
   return (wordIndex * 64 + bitIndex)
@@ -69,26 +69,26 @@ absentElementsUnfoldr (IntSet vec) = do
 -- * Composition
 -------------------------
 
-data IntSetComposition = IntSetComposition !Int [UnboxedVector Word64]
+data DenseIntSetComposition = DenseIntSetComposition !Int [UnboxedVector Word64]
 
-instance Semigroup IntSetComposition where
-  (<>) (IntSetComposition leftMinLength leftVecs) =
+instance Semigroup DenseIntSetComposition where
+  (<>) (DenseIntSetComposition leftMinLength leftVecs) =
     if null leftVecs
       then id
-      else \ (IntSetComposition rightMinLength rightVecs) -> if null rightVecs
-        then IntSetComposition leftMinLength leftVecs
-        else IntSetComposition (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
+      else \ (DenseIntSetComposition rightMinLength rightVecs) -> if null rightVecs
+        then DenseIntSetComposition leftMinLength leftVecs
+        else DenseIntSetComposition (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
 
-instance Monoid IntSetComposition where
-  mempty = IntSetComposition 0 []
+instance Monoid DenseIntSetComposition where
+  mempty = DenseIntSetComposition 0 []
   mappend = (<>)
 
-composed :: IntSet -> IntSetComposition
-composed (IntSet vec) = IntSetComposition (UnboxedVector.length vec) (pure vec)
+composed :: DenseIntSet -> DenseIntSetComposition
+composed (DenseIntSet vec) = DenseIntSetComposition (UnboxedVector.length vec) (pure vec)
 
-composedList :: [IntSet] -> IntSetComposition
+composedList :: [DenseIntSet] -> DenseIntSetComposition
 composedList list = if null list
   then mempty
   else let
-    bitVecList = fmap (\ (IntSet x) -> x) list
-    in IntSetComposition (foldr1 min (fmap UnboxedVector.length bitVecList)) bitVecList
+    bitVecList = fmap (\ (DenseIntSet x) -> x) list
+    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length bitVecList)) bitVecList
