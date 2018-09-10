@@ -11,42 +11,41 @@ import qualified Data.Vector.Unboxed.Bit as BitVector
 
 {-|
 Since there's multiple ways to implement a monoid for this data-structure,
-the instances are provided for the specific wrappers like "IntSetIntersection" or "IntSetUnion".
-All of those types are interconvertible.
+the instances are provided for "IntSetComposition", which
+is open for interpretation of how to compose.
 -}
 newtype IntSet = IntSet BitVector
 
-intersection :: IntSetIntersection -> IntSet
-intersection (IntSetIntersection minLength vecs) = IntSet (BitVector.intersections minLength vecs)
+intersection :: IntSetComposition -> IntSet
+intersection (IntSetComposition minLength vecs) = IntSet (BitVector.intersections minLength vecs)
 
-union :: IntSetUnion -> IntSet
-union (IntSetUnion minLength vecs) = IntSet (BitVector.unions minLength vecs)
+union :: IntSetComposition -> IntSet
+union (IntSetComposition minLength vecs) = IntSet (BitVector.unions minLength vecs)
 
 
--- * Intersection composition
+-- * Composition
 -------------------------
 
-data IntSetIntersection = IntSetIntersection !Int [BitVector]
+data IntSetComposition = IntSetComposition !Int [BitVector]
 
-instance Semigroup IntSetIntersection where
-  (<>) (IntSetIntersection leftMinLength leftVecs) =
+instance Semigroup IntSetComposition where
+  (<>) (IntSetComposition leftMinLength leftVecs) =
     if null leftVecs
       then id
-      else \ (IntSetIntersection rightMinLength rightVecs) -> if null rightVecs
-        then IntSetIntersection leftMinLength leftVecs
-        else IntSetIntersection (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
+      else \ (IntSetComposition rightMinLength rightVecs) -> if null rightVecs
+        then IntSetComposition leftMinLength leftVecs
+        else IntSetComposition (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
 
-instance Monoid IntSetIntersection where
-  mempty = IntSetIntersection 0 []
+instance Monoid IntSetComposition where
+  mempty = IntSetComposition 0 []
   mappend = (<>)
 
-intersected :: IntSet -> IntSetIntersection
-intersected (IntSet vec) = IntSetIntersection (BitVector.length vec) (pure vec)
+composed :: IntSet -> IntSetComposition
+composed (IntSet vec) = IntSetComposition (BitVector.length vec) (pure vec)
 
-
--- * Union composition
--------------------------
-
-data IntSetUnion = IntSetUnion !Int [BitVector]
-
-
+composedList :: [IntSet] -> IntSetComposition
+composedList list = if null list
+  then mempty
+  else let
+    bitVecList = fmap (\ (IntSet x) -> x) list
+    in IntSetComposition (foldr1 min (fmap BitVector.length bitVecList)) bitVecList
