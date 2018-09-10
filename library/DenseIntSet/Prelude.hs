@@ -3,6 +3,7 @@ module DenseIntSet.Prelude
   module Exports,
   UnboxedVector,
   bitsInWord,
+  divCeiling,
 )
 where
 
@@ -101,3 +102,7 @@ type UnboxedVector = UnboxedVector.Vector
 {-# NOINLINE bitsInWord #-}
 bitsInWord :: Int
 bitsInWord = finiteBitSize (0 :: Word)
+
+{-# INLINE divCeiling #-}
+divCeiling :: Integral a => a -> a -> a
+divCeiling a b = div (a - 1) b + 1

@@ -29,6 +29,21 @@ intersection (DenseIntSetComposition minLength vecs) = undefined
 union :: DenseIntSetComposition -> DenseIntSet
 union (DenseIntSetComposition minLength vecs) = undefined
 
+topValueIndices :: (Ord a) => (GenericVector.Vector vector a, GenericVector.Vector vector (a, Int)) => Int -> vector a -> DenseIntSet
+topValueIndices amount valueVec = let
+  valuesAmount = GenericVector.length valueVec
+  limitedAmount = min amount valuesAmount
+  wordsAmount = divCeiling valuesAmount 64
+  in runST $ do
+    pairMVec <- GenericVector.unsafeThaw (GenericVector.imap (\ index count -> (count, index)) valueVec)
+    IntroVectorAlgorithm.selectBy (\ a b -> compare (fst b) (fst a)) pairMVec limitedAmount
+    indexSetMVec <- MutableGenericVector.new wordsAmount
+    forM_ (Unfoldr.intsInRange 0 (pred limitedAmount)) $ \ pairIndex -> do
+      (_, index) <- MutableGenericVector.unsafeRead pairMVec pairIndex
+      let (wordIndex, bitIndex) = divMod index 64
+      MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
+    DenseIntSet <$> GenericVector.unsafeFreeze indexSetMVec
+
 
 -- * Accessors
 -------------------------
