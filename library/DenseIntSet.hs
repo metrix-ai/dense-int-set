@@ -19,6 +19,13 @@ is open for interpretation of how to compose.
 -}
 newtype DenseIntSet = DenseIntSet (UnboxedVector Word64)
 
+deriving instance Eq DenseIntSet
+
+deriving instance Ord DenseIntSet
+
+instance Show DenseIntSet where 
+  show = show . toList . presentElementsUnfoldr
+
 
 -- * Constructors
 -------------------------
