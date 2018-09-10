@@ -3,7 +3,7 @@ where
 
 import DenseIntSet.Prelude
 import qualified Data.Vector.Unboxed as UnboxedVector
-import qualified Data.Vector.Unboxed.Bit as BitVec
+import qualified Data.Vector.Unboxed.Bit as BitVector
 
 
 -- * IntSet
@@ -17,10 +17,10 @@ All of those types are interconvertible.
 newtype IntSet = IntSet BitVector
 
 intersection :: IntSetIntersection -> IntSet
-intersection (IntSetIntersection minLength vecs) = IntSet (BitVec.intersections minLength vecs)
+intersection (IntSetIntersection minLength vecs) = IntSet (BitVector.intersections minLength vecs)
 
 union :: IntSetUnion -> IntSet
-union (IntSetUnion minLength vecs) = IntSet (BitVec.unions minLength vecs)
+union (IntSetUnion minLength vecs) = IntSet (BitVector.unions minLength vecs)
 
 
 -- * Intersection composition
@@ -41,7 +41,7 @@ instance Monoid IntSetIntersection where
   mappend = (<>)
 
 intersected :: IntSet -> IntSetIntersection
-intersected (IntSet vec) = IntSetIntersection (BitVec.length vec) (pure vec)
+intersected (IntSet vec) = IntSetIntersection (BitVector.length vec) (pure vec)
 
 
 -- * Union composition
