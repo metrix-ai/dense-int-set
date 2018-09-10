@@ -2,7 +2,7 @@ module DenseIntSet.Prelude
 (
   module Exports,
   UnboxedVector,
-  BitVector,
+  bitsInWord,
 )
 where
 
@@ -73,8 +73,6 @@ import Unsafe.Coerce as Exports
 
 -- deferred-folds
 -------------------------
-import DeferredFolds.Unfoldl as Exports (Unfoldl(..))
-import DeferredFolds.UnfoldlM as Exports (UnfoldlM(..))
 import DeferredFolds.Unfoldr as Exports (Unfoldr(..))
 
 -- hashable
@@ -93,16 +91,13 @@ import Data.Serialize as Exports (Serialize)
 -------------------------
 import Data.Vector.Serialize ()
 
--- bitvec
--------------------------
-import Data.Bit as Exports (Bit)
-
 -- 
 -------------------------
-import qualified Data.Vector.Unboxed.Bit as BitVec
 import qualified Data.Vector.Unboxed as UnboxedVector
 
 
 type UnboxedVector = UnboxedVector.Vector
 
-type BitVector = UnboxedVector Bit
+{-# NOINLINE bitsInWord #-}
+bitsInWord :: Int
+bitsInWord = finiteBitSize (0 :: Word)
