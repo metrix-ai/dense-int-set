@@ -51,6 +51,19 @@ topValueIndices amount valueVec = let
       MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
     DenseIntSet <$> GenericVector.unsafeFreeze indexSetMVec
 
+filteredIndices :: GenericVector.Vector vector a => (a -> Bool) -> vector a -> DenseIntSet
+filteredIndices predicate valueVec = DenseIntSet $ let
+  valuesAmount = GenericVector.length valueVec
+  wordsAmount = divCeiling valuesAmount 64
+  indexUnfoldr = do
+    (index, a) <- Unfoldr.vectorWithIndices valueVec
+    guard (predicate a)
+    return (divMod index 64)
+  in runST $ do
+    indexSetMVec <- MutableGenericVector.new wordsAmount
+    forM_ indexUnfoldr $ \ (wordIndex, bitIndex) -> MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
+    GenericVector.unsafeFreeze indexSetMVec
+
 
 -- * Accessors
 -------------------------
