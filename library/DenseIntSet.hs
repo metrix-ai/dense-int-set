@@ -54,12 +54,17 @@ deriving instance Eq DenseIntSet
 deriving instance Ord DenseIntSet
 
 instance Show DenseIntSet where 
-  show = show . toList . presentElementsUnfoldr
+  show = show . toList
 
 deriving instance Serialize DenseIntSet
 
 instance Hashable DenseIntSet where
   hashWithSalt salt (DenseIntSet vec) = hashWithSalt salt (GenericVector.toList vec)
+
+instance IsList DenseIntSet where
+  type Item DenseIntSet = Int
+  fromList list = foldable (foldl' max 0 list) list
+  toList = toList . presentElementsUnfoldr
 
 
 -- * Constructors

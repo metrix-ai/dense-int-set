@@ -28,18 +28,20 @@ import Data.Data as Exports
 import Data.Dynamic as Exports
 import Data.Either as Exports
 import Data.Fixed as Exports
-import Data.Foldable as Exports
+import Data.Foldable as Exports hiding (toList)
 import Data.Function as Exports hiding (id, (.))
 import Data.Functor as Exports
+import Data.Functor.Identity as Exports
 import Data.Int as Exports
 import Data.IORef as Exports
 import Data.Ix as Exports
 import Data.List as Exports hiding (sortOn, isSubsequenceOf, uncons, concat, foldr, foldl1, maximum, minimum, product, sum, all, and, any, concatMap, elem, foldl, foldr1, notElem, or, find, maximumBy, minimumBy, mapAccumL, mapAccumR, foldl')
 import Data.Maybe as Exports
-import Data.Monoid as Exports hiding (Last(..), First(..))
+import Data.Monoid as Exports hiding (Last(..), First(..), (<>))
 import Data.Ord as Exports
 import Data.Proxy as Exports
 import Data.Ratio as Exports
+import Data.Semigroup as Exports
 import Data.STRef as Exports
 import Data.String as Exports
 import Data.Traversable as Exports
@@ -51,9 +53,9 @@ import Debug.Trace as Exports
 import Foreign.ForeignPtr as Exports
 import Foreign.Ptr as Exports
 import Foreign.StablePtr as Exports
-import Foreign.Storable as Exports
+import Foreign.Storable as Exports hiding (sizeOf, alignment)
 import GHC.Conc as Exports hiding (withMVar, threadWaitWriteSTM, threadWaitWrite, threadWaitReadSTM, threadWaitRead)
-import GHC.Exts as Exports (lazy, inline, sortWith, groupWith)
+import GHC.Exts as Exports (lazy, inline, sortWith, groupWith, IsList(..))
 import GHC.Generics as Exports (Generic)
 import GHC.IO.Exception as Exports
 import Numeric as Exports
