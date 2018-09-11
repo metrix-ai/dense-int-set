@@ -177,6 +177,20 @@ presentElementsVector intSet = let
     forM_ unfoldr $ \ (index, element) -> MutableGenericVector.unsafeWrite mv index element
     GenericVector.unsafeFreeze mv
 
+{-|
+Filter a vector, leaving only the entries, under the indices, which are in the set.
+
+It is your responsibility to ensure that the indices in the set don't exceed the original vector's bounds.
+-}
+filterVector :: GenericVector.Vector vector a => DenseIntSet -> vector a -> vector a
+filterVector set vector = let
+  !newVectorSize = size set
+  in runST $ do
+    newVector <- MutableGenericVector.unsafeNew newVectorSize
+    forM_ (Unfoldr.zipWithIndex (vectorElementsUnfoldr vector set)) $ \ (newIndex, a) -> do
+      MutableGenericVector.unsafeWrite newVector newIndex a
+    GenericVector.unsafeFreeze newVector
+
 
 -- ** Unfoldr
 -------------------------
@@ -198,6 +212,14 @@ absentElementsUnfoldr (DenseIntSet vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
   bitIndex <- Unfoldr.unsetBitIndices word
   return (wordIndex * 64 + bitIndex)
+
+{-|
+Unfold the elements of a vector by indices in the set.
+
+It is your responsibility to ensure that the indices in the set don't exceed the vector's bounds.
+-}
+vectorElementsUnfoldr :: (GenericVector.Vector vector a) => vector a -> DenseIntSet -> Unfoldr a
+vectorElementsUnfoldr vec = fmap (vec GenericVector.!) . presentElementsUnfoldr
 
 
 -- * Composition
