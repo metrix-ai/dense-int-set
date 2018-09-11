@@ -1,5 +1,5 @@
 name: dense-int-set
-version: 0.1
+version: 0.1.1
 category: Data
 synopsis: Dense int-set
 homepage: https://github.com/metrix-ai/dense-int-set
