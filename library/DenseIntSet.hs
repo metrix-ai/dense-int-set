@@ -9,6 +9,7 @@ module DenseIntSet
   filteredIndices,
   -- ** Accessors
   size,
+  lookup,
   -- *** Vectors
   presentElementsVector,
   -- *** Unfoldrs
@@ -21,7 +22,7 @@ module DenseIntSet
 )
 where
 
-import DenseIntSet.Prelude hiding (intersection, union)
+import DenseIntSet.Prelude hiding (intersection, union, lookup)
 import qualified DeferredFolds.Unfoldr as Unfoldr
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Unboxed as UnboxedVector
@@ -129,6 +130,14 @@ filteredIndices predicate valueVec = DenseIntSet $ let
 -}
 size :: DenseIntSet -> Int
 size (DenseIntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
+
+{-|
+/O(1)/. Check whether an int is a member of the set.
+-}
+lookup :: Int -> DenseIntSet -> Bool
+lookup index (DenseIntSet vec) = let
+  (wordIndex, bitIndex) = divMod index 64
+  in vec GenericVector.!? wordIndex & maybe False (flip testBit bitIndex)
 
 
 -- ** Vectors
