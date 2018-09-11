@@ -14,9 +14,11 @@ module DenseIntSet
   lookup,
   -- *** Vectors
   presentElementsVector,
+  filterVector,
   -- *** Unfoldrs
   presentElementsUnfoldr,
   absentElementsUnfoldr,
+  vectorElementsUnfoldr,
   -- * Composition
   DenseIntSetComposition,
   compose,
