@@ -43,7 +43,8 @@ instance Show DenseIntSet where
 
 deriving instance Serialize DenseIntSet
 
-deriving instance Hashable DenseIntSet
+instance Hashable DenseIntSet where
+  hashWithSalt salt (DenseIntSet vec) = hashWithSalt salt (GenericVector.toList vec)
 
 
 -- * Constructors
