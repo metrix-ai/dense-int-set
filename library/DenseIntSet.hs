@@ -1,7 +1,21 @@
 module DenseIntSet
+(
+  DenseIntSet,
+  intersection,
+  union,
+  topValueIndices,
+  filteredIndices,
+  size,
+  presentElementsVector,
+  presentElementsUnfoldr,
+  absentElementsUnfoldr,
+  DenseIntSetComposition,
+  compose,
+  composeList,
+)
 where
 
-import DenseIntSet.Prelude
+import DenseIntSet.Prelude hiding (intersection, union)
 import qualified DeferredFolds.Unfoldr as Unfoldr
 import qualified Data.Vector as Vector
 import qualified Data.Vector.Unboxed as UnboxedVector
