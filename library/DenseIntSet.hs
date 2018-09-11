@@ -3,10 +3,12 @@ module DenseIntSet
   -- * DenseIntSet
   DenseIntSet,
   -- ** Constructors
-  intersection,
-  union,
+  foldable,
   topValueIndices,
   filteredIndices,
+  -- *** Composition
+  intersection,
+  union,
   -- ** Accessors
   size,
   lookup,
@@ -62,6 +64,21 @@ instance Hashable DenseIntSet where
 
 -- * Constructors
 -------------------------
+
+{-|
+Given a maximum int, construct from a foldable of ints, which are smaller or equal to it.
+
+It is your responsibility to ensure that the values match this contract.
+-}
+foldable :: Foldable foldable => Int -> foldable Int -> DenseIntSet
+foldable size foldable = let
+  !wordsAmount = divCeiling size 64
+  in DenseIntSet $ runST $ do
+    indexSetMVec <- MutableGenericVector.new wordsAmount
+    forM_ foldable $ \ index -> let
+      (wordIndex, bitIndex) = divMod index 64
+      in MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
+    GenericVector.unsafeFreeze indexSetMVec
 
 {-|
 Interpret a composition as an intersection of sets.
