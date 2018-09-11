@@ -3,6 +3,7 @@ where
 
 import DenseIntSet.Prelude
 import qualified DeferredFolds.Unfoldr as Unfoldr
+import qualified Data.Vector as Vector
 import qualified Data.Vector.Unboxed as UnboxedVector
 import qualified Data.Vector.Generic as GenericVector
 import qualified Data.Vector.Generic.Mutable as MutableGenericVector
@@ -31,10 +32,22 @@ instance Show DenseIntSet where
 -------------------------
 
 intersection :: DenseIntSetComposition -> DenseIntSet
-intersection (DenseIntSetComposition minLength vecs) = undefined
+intersection = zipWords (.&.) maxBound
 
 union :: DenseIntSetComposition -> DenseIntSet
-union (DenseIntSetComposition minLength vecs) = undefined
+union = zipWords (.|.) 0
+
+zipWords :: (Word64 -> Word64 -> Word64) -> Word64 -> DenseIntSetComposition -> DenseIntSet
+zipWords append empty (DenseIntSetComposition minLength vecs) = DenseIntSet $ runST $ let
+  wordIndexUnfoldr = Unfoldr.intsInRange 0 (pred minLength)
+  vecVec = Vector.fromList vecs
+  vecUnfoldr = Unfoldr.foldable vecVec
+  wordUnfoldrAt wordIndex = fmap (flip GenericVector.unsafeIndex wordIndex) vecUnfoldr
+  finalWordAt = foldr append empty . wordUnfoldrAt
+  in do
+    indexSetMVec <- MutableGenericVector.new minLength
+    forM_ wordIndexUnfoldr $ \ index -> MutableGenericVector.unsafeWrite indexSetMVec index (finalWordAt index)
+    GenericVector.unsafeFreeze indexSetMVec
 
 topValueIndices :: (Ord a) => (GenericVector.Vector vector a, GenericVector.Vector vector (a, Int)) => Int -> vector a -> DenseIntSet
 topValueIndices amount valueVec = let
@@ -118,12 +131,12 @@ instance Monoid DenseIntSetComposition where
   mempty = DenseIntSetComposition 0 []
   mappend = (<>)
 
-composed :: DenseIntSet -> DenseIntSetComposition
-composed (DenseIntSet vec) = DenseIntSetComposition (UnboxedVector.length vec) (pure vec)
+compose :: DenseIntSet -> DenseIntSetComposition
+compose (DenseIntSet vec) = DenseIntSetComposition (UnboxedVector.length vec) (pure vec)
 
-composedList :: [DenseIntSet] -> DenseIntSetComposition
-composedList list = if null list
+composeList :: [DenseIntSet] -> DenseIntSetComposition
+composeList list = if null list
   then mempty
   else let
-    unboxedVectorList = fmap (\ (DenseIntSet x) -> x) list
-    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length unboxedVectorList)) unboxedVectorList
+    unboxedVec = fmap (\ (DenseIntSet x) -> x) list
+    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length unboxedVec)) unboxedVec
