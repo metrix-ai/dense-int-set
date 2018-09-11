@@ -1,14 +1,20 @@
 module DenseIntSet
 (
+  -- * DenseIntSet
   DenseIntSet,
+  -- ** Constructors
   intersection,
   union,
   topValueIndices,
   filteredIndices,
+  -- ** Accessors
   size,
+  -- *** Vectors
   presentElementsVector,
+  -- *** Unfoldrs
   presentElementsUnfoldr,
   absentElementsUnfoldr,
+  -- * Composition
   DenseIntSetComposition,
   compose,
   composeList,
@@ -28,6 +34,12 @@ import qualified Data.Vector.Algorithms.Intro as IntroVectorAlgorithm
 -------------------------
 
 {-|
+Set of integer values represented as a space-optimized dense array of booleans,
+where an entry only occupies 1 bit.
+Compared to IntSet of the \"containers\" library,
+it trades off the the ability for modification for much better lookup performance.
+Hence it best fits the usage patterns, where you first create the set and then only use it for lookups.
+
 Since there's multiple ways to implement a monoid for this data-structure,
 the instances are provided for "DenseIntSetComposition", which
 is open for interpretation of how to compose.
@@ -50,9 +62,15 @@ instance Hashable DenseIntSet where
 -- * Constructors
 -------------------------
 
+{-|
+Interpret a composition as an intersection of sets.
+-}
 intersection :: DenseIntSetComposition -> DenseIntSet
 intersection = zipWords (.&.) maxBound
 
+{-|
+Interpret a composition as a union of sets.
+-}
 union :: DenseIntSetComposition -> DenseIntSet
 union = zipWords (.|.) 0
 
@@ -68,6 +86,9 @@ zipWords append empty (DenseIntSetComposition minLength vecs) = DenseIntSet $ ru
     forM_ wordIndexUnfoldr $ \ index -> MutableGenericVector.unsafeWrite indexSetMVec index (finalWordAt index)
     GenericVector.unsafeFreeze indexSetMVec
 
+{-|
+Using the provided ordering function, select the indices of the specified amount of top-ordered elements of a generic vector.
+-}
 topValueIndices :: (GenericVector.Vector vector a, GenericVector.Vector vector (a, Int)) => (a -> a -> Ordering) -> Int -> vector a -> DenseIntSet
 topValueIndices compare amount valueVec = let
   valuesAmount = GenericVector.length valueVec
@@ -83,6 +104,9 @@ topValueIndices compare amount valueVec = let
       MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
     DenseIntSet <$> GenericVector.unsafeFreeze indexSetMVec
 
+{-|
+Select the indices of vector elements, which match the predicate.
+-}
 filteredIndices :: GenericVector.Vector vector a => (a -> Bool) -> vector a -> DenseIntSet
 filteredIndices predicate valueVec = DenseIntSet $ let
   valuesAmount = GenericVector.length valueVec
@@ -100,6 +124,9 @@ filteredIndices predicate valueVec = DenseIntSet $ let
 -- * Accessors
 -------------------------
 
+{-|
+/O(log n)/. Count the amount of present elements in the set.
+-}
 size :: DenseIntSet -> Int
 size (DenseIntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
 
@@ -107,6 +134,9 @@ size (DenseIntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
 -- ** Vectors
 -------------------------
 
+{-|
+Extract the present elements into a vector.
+-}
 presentElementsVector :: GenericVector.Vector vector Int => DenseIntSet -> vector Int
 presentElementsVector intSet = let
   sizeVal = size intSet
@@ -120,12 +150,18 @@ presentElementsVector intSet = let
 -- ** Unfoldr
 -------------------------
 
+{-|
+Unfold the present elements.
+-}
 presentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
 presentElementsUnfoldr (DenseIntSet vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
   bitIndex <- Unfoldr.setBitIndices word
   return (wordIndex * 64 + bitIndex)
 
+{-|
+Unfold the absent elements.
+-}
 absentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
 absentElementsUnfoldr (DenseIntSet vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
@@ -136,6 +172,10 @@ absentElementsUnfoldr (DenseIntSet vec) = do
 -- * Composition
 -------------------------
 
+{-|
+Abstraction over the composition of sets,
+which is cheap to append and can be used for interpreted merging of sets.
+-}
 data DenseIntSetComposition = DenseIntSetComposition !Int [UnboxedVector Word64]
 
 instance Semigroup DenseIntSetComposition where
@@ -150,9 +190,15 @@ instance Monoid DenseIntSetComposition where
   mempty = DenseIntSetComposition 0 []
   mappend = (<>)
 
+{-|
+Lift a set into composition.
+-}
 compose :: DenseIntSet -> DenseIntSetComposition
 compose (DenseIntSet vec) = DenseIntSetComposition (UnboxedVector.length vec) (pure vec)
 
+{-|
+Lift a list of sets into composition.
+-}
 composeList :: [DenseIntSet] -> DenseIntSetComposition
 composeList list = if null list
   then mempty
