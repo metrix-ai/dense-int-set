@@ -41,6 +41,8 @@ deriving instance Ord DenseIntSet
 instance Show DenseIntSet where 
   show = show . toList . presentElementsUnfoldr
 
+deriving instance Serialize DenseIntSet
+
 
 -- * Constructors
 -------------------------
