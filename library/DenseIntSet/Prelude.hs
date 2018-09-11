@@ -92,6 +92,10 @@ import Data.Serialize as Exports (Serialize)
 -------------------------
 import Data.Vector.Serialize ()
 
+-- vector-instances
+-------------------------
+import Data.Vector.Instances ()
+
 -- 
 -------------------------
 import qualified Data.Vector.Unboxed as UnboxedVector

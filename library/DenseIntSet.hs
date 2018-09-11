@@ -43,6 +43,8 @@ instance Show DenseIntSet where
 
 deriving instance Serialize DenseIntSet
 
+deriving instance Hashable DenseIntSet
+
 
 -- * Constructors
 -------------------------

@@ -27,4 +27,5 @@ library
     deferred-folds >=0.9.5 && <0.10,
     hashable >=1 && <2,
     vector >=0.12 && <0.13,
-    vector-algorithms >=0.7.0.4 && <0.8
+    vector-algorithms >=0.7.0.4 && <0.8,
+    vector-instances >=3.4 && <4
