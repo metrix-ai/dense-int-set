@@ -68,8 +68,8 @@ zipWords append empty (DenseIntSetComposition minLength vecs) = DenseIntSet $ ru
     forM_ wordIndexUnfoldr $ \ index -> MutableGenericVector.unsafeWrite indexSetMVec index (finalWordAt index)
     GenericVector.unsafeFreeze indexSetMVec
 
-topValueIndices :: (Ord a) => (GenericVector.Vector vector a, GenericVector.Vector vector (a, Int)) => Int -> vector a -> DenseIntSet
-topValueIndices amount valueVec = let
+topValueIndices :: (GenericVector.Vector vector a, GenericVector.Vector vector (a, Int)) => (a -> a -> Ordering) -> Int -> vector a -> DenseIntSet
+topValueIndices compare amount valueVec = let
   valuesAmount = GenericVector.length valueVec
   limitedAmount = min amount valuesAmount
   wordsAmount = divCeiling valuesAmount 64
