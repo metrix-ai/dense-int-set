@@ -193,6 +193,18 @@ filterVector set vector = let
       MutableGenericVector.unsafeWrite newVector newIndex a
     GenericVector.unsafeFreeze newVector
 
+{-|
+Construct a vector, which maps from the original ints into their indices amongst the ones present in the set.
+-}
+indexVector :: GenericVector.Vector vector (Maybe Int) => DenseIntSet -> vector (Maybe Int)
+indexVector set@(DenseIntSet setVec) = let
+  indexVecSize = GenericVector.length setVec * 64
+  in runST $ do
+    v <- MutableGenericVector.replicate indexVecSize Nothing
+    forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
+      MutableGenericVector.unsafeWrite v element (Just index)
+    GenericVector.unsafeFreeze v
+
 
 -- ** Unfoldr
 -------------------------
