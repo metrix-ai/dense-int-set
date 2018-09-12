@@ -15,6 +15,7 @@ module DenseIntSet
   -- *** Vectors
   presentElementsVector,
   filterVector,
+  indexVector,
   -- *** Unfoldrs
   presentElementsUnfoldr,
   absentElementsUnfoldr,
