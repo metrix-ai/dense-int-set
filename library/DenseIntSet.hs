@@ -171,13 +171,13 @@ lookup index (DenseIntSet vec) = let
 {-|
 Extract the present elements into a vector.
 -}
-presentElementsVector :: GenericVector.Vector vector Int => DenseIntSet -> vector Int
-presentElementsVector intSet = let
+presentElementsVector :: GenericVector.Vector vector element => DenseIntSet -> (Int -> element) -> vector element
+presentElementsVector intSet intToIndex = let
   sizeVal = size intSet
   unfoldr = Unfoldr.zipWithIndex (presentElementsUnfoldr intSet)
   in runST $ do
     mv <- MutableGenericVector.unsafeNew sizeVal
-    forM_ unfoldr $ \ (index, element) -> MutableGenericVector.unsafeWrite mv index element
+    forM_ unfoldr $ \ (index, element) -> MutableGenericVector.unsafeWrite mv index (intToIndex element)
     GenericVector.unsafeFreeze mv
 
 {-|
@@ -197,13 +197,13 @@ filterVector set vector = let
 {-|
 Construct a vector, which maps from the original ints into their indices amongst the ones present in the set.
 -}
-indexVector :: GenericVector.Vector vector (Maybe Int) => DenseIntSet -> vector (Maybe Int)
-indexVector set@(DenseIntSet setVec) = let
+indexVector :: GenericVector.Vector vector (Maybe index) => DenseIntSet -> (Int -> index) -> vector (Maybe index)
+indexVector set@(DenseIntSet setVec) intToIndex = let
   indexVecSize = GenericVector.length setVec * 64
   in runST $ do
     v <- MutableGenericVector.replicate indexVecSize Nothing
     forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
-      MutableGenericVector.unsafeWrite v element (Just index)
+      MutableGenericVector.unsafeWrite v element (Just (intToIndex index))
     GenericVector.unsafeFreeze v
 
 
