@@ -14,8 +14,8 @@ module DenseIntSet
   lookup,
   -- *** Vectors
   presentElementsVector,
-  filterVector,
   indexVector,
+  filterVector,
   -- *** Unfoldrs
   presentElementsUnfoldr,
   absentElementsUnfoldr,
@@ -181,6 +181,18 @@ presentElementsVector intSet intToIndex = let
     GenericVector.unsafeFreeze mv
 
 {-|
+Construct a vector, which maps from the original ints into their indices amongst the ones present in the set.
+-}
+indexVector :: GenericVector.Vector vector (Maybe index) => DenseIntSet -> (Int -> index) -> vector (Maybe index)
+indexVector set@(DenseIntSet setVec) intToIndex = let
+  indexVecSize = GenericVector.length setVec * 64
+  in runST $ do
+    v <- MutableGenericVector.replicate indexVecSize Nothing
+    forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
+      MutableGenericVector.unsafeWrite v element (Just (intToIndex index))
+    GenericVector.unsafeFreeze v
+
+{-|
 Filter a vector, leaving only the entries, under the indices, which are in the set.
 
 It is your responsibility to ensure that the indices in the set don't exceed the original vector's bounds.
@@ -193,18 +205,6 @@ filterVector set vector = let
     forM_ (Unfoldr.zipWithIndex (vectorElementsUnfoldr vector set)) $ \ (newIndex, a) -> do
       MutableGenericVector.unsafeWrite newVector newIndex a
     GenericVector.unsafeFreeze newVector
-
-{-|
-Construct a vector, which maps from the original ints into their indices amongst the ones present in the set.
--}
-indexVector :: GenericVector.Vector vector (Maybe index) => DenseIntSet -> (Int -> index) -> vector (Maybe index)
-indexVector set@(DenseIntSet setVec) intToIndex = let
-  indexVecSize = GenericVector.length setVec * 64
-  in runST $ do
-    v <- MutableGenericVector.replicate indexVecSize Nothing
-    forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
-      MutableGenericVector.unsafeWrite v element (Just (intToIndex index))
-    GenericVector.unsafeFreeze v
 
 
 -- ** Unfoldr
