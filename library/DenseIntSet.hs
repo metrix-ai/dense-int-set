@@ -10,6 +10,7 @@ module DenseIntSet
   intersection,
   union,
   -- ** Accessors
+  capacity,
   size,
   lookup,
   -- *** Vectors
@@ -50,7 +51,7 @@ Since there's multiple ways to implement a monoid for this data-structure,
 the instances are provided for "DenseIntSetComposition", which
 is open for interpretation of how to compose.
 -}
-newtype DenseIntSet = DenseIntSet (UnboxedVector Word64)
+data DenseIntSet = DenseIntSet {-# UNPACK #-} !Int {-# UNPACK #-} !(UnboxedVector Word64)
 
 deriving instance Eq DenseIntSet
 
@@ -59,10 +60,12 @@ deriving instance Ord DenseIntSet
 instance Show DenseIntSet where 
   show = show . toList
 
-deriving instance Serialize DenseIntSet
+deriving instance Generic DenseIntSet
+
+instance Serialize DenseIntSet
 
 instance Hashable DenseIntSet where
-  hashWithSalt salt (DenseIntSet vec) = hashWithSalt salt (GenericVector.toList vec)
+  hashWithSalt salt (DenseIntSet capacity vec) = hashWithSalt (hashWithSalt salt capacity) (GenericVector.toList vec)
 
 instance IsList DenseIntSet where
   type Item DenseIntSet = Int
@@ -79,9 +82,9 @@ Given a maximum int, construct from a foldable of ints, which are smaller or equ
 It is your responsibility to ensure that the values match this contract.
 -}
 foldable :: Foldable foldable => Int -> foldable Int -> DenseIntSet
-foldable size foldable = let
-  !wordsAmount = divCeiling size 64
-  in DenseIntSet $ runST $ do
+foldable capacity foldable = let
+  !wordsAmount = divCeiling capacity 64
+  in DenseIntSet capacity $ runST $ do
     indexSetMVec <- MutableGenericVector.new wordsAmount
     forM_ foldable $ \ index -> let
       (wordIndex, bitIndex) = divMod index 64
@@ -101,14 +104,15 @@ union :: DenseIntSetComposition -> DenseIntSet
 union = zipWords (.|.) 0
 
 zipWords :: (Word64 -> Word64 -> Word64) -> Word64 -> DenseIntSetComposition -> DenseIntSet
-zipWords append empty (DenseIntSetComposition minLength vecs) = DenseIntSet $ runST $ let
-  wordIndexUnfoldr = Unfoldr.intsInRange 0 (pred minLength)
+zipWords append empty (DenseIntSetComposition minCapacity vecs) = DenseIntSet minCapacity $ runST $ let
+  wordsAmount = divCeiling minCapacity 64
+  wordIndexUnfoldr = Unfoldr.intsInRange 0 (pred wordsAmount)
   vecVec = Vector.fromList vecs
   vecUnfoldr = Unfoldr.foldable vecVec
   wordUnfoldrAt wordIndex = fmap (flip GenericVector.unsafeIndex wordIndex) vecUnfoldr
   finalWordAt = foldr append empty . wordUnfoldrAt
   in do
-    indexSetMVec <- MutableGenericVector.new minLength
+    indexSetMVec <- MutableGenericVector.new wordsAmount
     forM_ wordIndexUnfoldr $ \ index -> MutableGenericVector.unsafeWrite indexSetMVec index (finalWordAt index)
     GenericVector.unsafeFreeze indexSetMVec
 
@@ -128,20 +132,20 @@ topValueIndices compare amount valueVec = let
       (_, index) <- MutableGenericVector.unsafeRead pairMVec pairIndex
       let (wordIndex, bitIndex) = divMod index 64
       MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
-    DenseIntSet <$> GenericVector.unsafeFreeze indexSetMVec
+    DenseIntSet valuesAmount <$> GenericVector.unsafeFreeze indexSetMVec
 
 {-|
 Select the indices of vector elements, which match the predicate.
 -}
 filteredIndices :: GenericVector.Vector vector a => (a -> Bool) -> vector a -> DenseIntSet
-filteredIndices predicate valueVec = DenseIntSet $ let
+filteredIndices predicate valueVec = let
   valuesAmount = GenericVector.length valueVec
   wordsAmount = divCeiling valuesAmount 64
   indexUnfoldr = do
     (index, a) <- Unfoldr.vectorWithIndices valueVec
     guard (predicate a)
     return (divMod index 64)
-  in runST $ do
+  in DenseIntSet valuesAmount $ runST $ do
     indexSetMVec <- MutableGenericVector.new wordsAmount
     forM_ indexUnfoldr $ \ (wordIndex, bitIndex) -> MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
     GenericVector.unsafeFreeze indexSetMVec
@@ -151,16 +155,22 @@ filteredIndices predicate valueVec = DenseIntSet $ let
 -------------------------
 
 {-|
+/O(1)/. Size of the value space.
+-}
+capacity :: DenseIntSet -> Int
+capacity (DenseIntSet x _) = x
+
+{-|
 /O(log n)/. Count the amount of present elements in the set.
 -}
 size :: DenseIntSet -> Int
-size (DenseIntSet vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
+size (DenseIntSet _ vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
 
 {-|
 /O(1)/. Check whether an int is a member of the set.
 -}
 lookup :: Int -> DenseIntSet -> Bool
-lookup index (DenseIntSet vec) = let
+lookup index (DenseIntSet _ vec) = let
   (wordIndex, bitIndex) = divMod index 64
   in vec GenericVector.!? wordIndex & maybe False (flip testBit bitIndex)
 
@@ -173,10 +183,10 @@ Extract the present elements into a vector.
 -}
 presentElementsVector :: GenericVector.Vector vector element => DenseIntSet -> (Int -> element) -> vector element
 presentElementsVector intSet intToIndex = let
-  sizeVal = size intSet
+  vectorSize = size intSet
   unfoldr = Unfoldr.zipWithIndex (presentElementsUnfoldr intSet)
   in runST $ do
-    mv <- MutableGenericVector.unsafeNew sizeVal
+    mv <- MutableGenericVector.unsafeNew vectorSize
     forM_ unfoldr $ \ (index, element) -> MutableGenericVector.unsafeWrite mv index (intToIndex element)
     GenericVector.unsafeFreeze mv
 
@@ -184,13 +194,11 @@ presentElementsVector intSet intToIndex = let
 Construct a vector, which maps from the original ints into their indices amongst the ones present in the set.
 -}
 indexVector :: GenericVector.Vector vector (Maybe index) => DenseIntSet -> (Int -> index) -> vector (Maybe index)
-indexVector set@(DenseIntSet setVec) intToIndex = let
-  indexVecSize = GenericVector.length setVec * 64
-  in runST $ do
-    v <- MutableGenericVector.replicate indexVecSize Nothing
-    forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
-      MutableGenericVector.unsafeWrite v element (Just (intToIndex index))
-    GenericVector.unsafeFreeze v
+indexVector set@(DenseIntSet capacity setVec) intToIndex = runST $ do
+  v <- MutableGenericVector.replicate capacity Nothing
+  forM_ (Unfoldr.zipWithIndex (presentElementsUnfoldr set)) $ \ (index, element) -> do
+    MutableGenericVector.unsafeWrite v element (Just (intToIndex index))
+  GenericVector.unsafeFreeze v
 
 {-|
 Filter a vector, leaving only the entries, under the indices, which are in the set.
@@ -214,7 +222,7 @@ filterVector set vector = let
 Unfold the present elements.
 -}
 presentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
-presentElementsUnfoldr (DenseIntSet vec) = do
+presentElementsUnfoldr (DenseIntSet capacity vec) = do
   (wordIndex, word) <- Unfoldr.vectorWithIndices vec
   bitIndex <- Unfoldr.setBitIndices word
   return (wordIndex * 64 + bitIndex)
@@ -223,10 +231,20 @@ presentElementsUnfoldr (DenseIntSet vec) = do
 Unfold the absent elements.
 -}
 absentElementsUnfoldr :: DenseIntSet -> Unfoldr Int
-absentElementsUnfoldr (DenseIntSet vec) = do
-  (wordIndex, word) <- Unfoldr.vectorWithIndices vec
-  bitIndex <- Unfoldr.unsetBitIndices word
-  return (wordIndex * 64 + bitIndex)
+absentElementsUnfoldr (DenseIntSet capacity vec) = let
+  isLastWordIndex = let
+    !maxWordIndex = pred (divCeiling capacity 64)
+    in \ wordIndex -> wordIndex == maxWordIndex
+  in do
+    (wordIndex, word) <- Unfoldr.vectorWithIndices vec
+    let
+      wordElemIndex = wordIndex * 64
+      in if isLastWordIndex wordIndex
+        then let
+          !bitsLeft = capacity - wordElemIndex
+          predicate bitIndex = bitIndex < bitsLeft
+          in fmap (wordElemIndex +) (Unfoldr.takeWhile predicate (Unfoldr.unsetBitIndices word))
+        else fmap (wordElemIndex +) (Unfoldr.unsetBitIndices word)
 
 {-|
 Unfold the elements of a vector by indices in the set.
@@ -247,12 +265,12 @@ which is cheap to append and can be used for interpreted merging of sets.
 data DenseIntSetComposition = DenseIntSetComposition !Int [UnboxedVector Word64]
 
 instance Semigroup DenseIntSetComposition where
-  (<>) (DenseIntSetComposition leftMinLength leftVecs) =
+  (<>) (DenseIntSetComposition leftMinCapacity leftVecs) =
     if null leftVecs
       then id
-      else \ (DenseIntSetComposition rightMinLength rightVecs) -> if null rightVecs
-        then DenseIntSetComposition leftMinLength leftVecs
-        else DenseIntSetComposition (min leftMinLength rightMinLength) (leftVecs <> rightVecs)
+      else \ (DenseIntSetComposition rightMinCapacity rightVecs) -> if null rightVecs
+        then DenseIntSetComposition leftMinCapacity leftVecs
+        else DenseIntSetComposition (min leftMinCapacity rightMinCapacity) (leftVecs <> rightVecs)
 
 instance Monoid DenseIntSetComposition where
   mempty = DenseIntSetComposition 0 []
@@ -262,14 +280,12 @@ instance Monoid DenseIntSetComposition where
 Lift a set into composition.
 -}
 compose :: DenseIntSet -> DenseIntSetComposition
-compose (DenseIntSet vec) = DenseIntSetComposition (UnboxedVector.length vec) (pure vec)
+compose (DenseIntSet capacity vec) = DenseIntSetComposition capacity (pure vec)
 
 {-|
 Lift a list of sets into composition.
 -}
 composeList :: [DenseIntSet] -> DenseIntSetComposition
-composeList list = if null list
-  then mempty
-  else let
-    unboxedVec = fmap (\ (DenseIntSet x) -> x) list
-    in DenseIntSetComposition (foldr1 min (fmap UnboxedVector.length unboxedVec)) unboxedVec
+composeList = let
+  unboxedVec (DenseIntSet _ unboxedVec) = unboxedVec
+  in \ list -> DenseIntSetComposition (foldr min 0 (fmap capacity list)) (fmap unboxedVec list)
