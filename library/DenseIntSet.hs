@@ -6,6 +6,7 @@ module DenseIntSet
   foldable,
   topValueIndices,
   filteredIndices,
+  invert,
   -- *** Composition
   intersection,
   union,
@@ -149,6 +150,21 @@ filteredIndices predicate valueVec = let
     indexSetMVec <- MutableGenericVector.new wordsAmount
     forM_ indexUnfoldr $ \ (wordIndex, bitIndex) -> MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
     GenericVector.unsafeFreeze indexSetMVec
+
+{-|
+Invert the set.
+-}
+invert :: DenseIntSet -> DenseIntSet
+invert (DenseIntSet capacity vec) = DenseIntSet capacity $ let
+  invertedVec = GenericVector.map complement vec
+  (lastWordIndex, claimedBitsOfLastWord) = divMod capacity 64
+  unclaimedBitsOfLastWord = 64 - claimedBitsOfLastWord
+  in if claimedBitsOfLastWord == 0
+    then invertedVec
+    else runST $ do
+      mv <- GenericVector.unsafeThaw invertedVec
+      flip (MutableGenericVector.modify mv) lastWordIndex $ flip shiftR unclaimedBitsOfLastWord . flip shiftL unclaimedBitsOfLastWord
+      GenericVector.unsafeFreeze mv
 
 
 -- * Accessors
