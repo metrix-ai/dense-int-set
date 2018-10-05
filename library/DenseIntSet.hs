@@ -70,7 +70,7 @@ instance Hashable DenseIntSet where
 
 instance IsList DenseIntSet where
   type Item DenseIntSet = Int
-  fromList list = foldable (foldl' max 0 list) list
+  fromList list = foldable (succ (foldl' max 0 list)) list
   toList = toList . presentElementsUnfoldr
 
 
