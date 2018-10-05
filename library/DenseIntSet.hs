@@ -78,7 +78,7 @@ instance IsList DenseIntSet where
 -------------------------
 
 {-|
-Given a maximum int, construct from a foldable of ints, which are smaller or equal to it.
+Given a maximum int, construct from a foldable of ints, which are smaller or equal to it and larger than 0.
 
 It is your responsibility to ensure that the values match this contract.
 -}
