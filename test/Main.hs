@@ -21,4 +21,8 @@ main =
     in [
       listSetProperty "List roundtrip" $ \ list ->
       sort list === sort (toList (fromList @DenseIntSet.DenseIntSet list))
+      ,
+      listSetProperty "Inversion" $ \ list -> let
+        invertedList = enumFromTo 0 (foldl' max 0 list) \\ list
+        in sort invertedList === sort (toList (DenseIntSet.invert (fromList list)))
     ]
