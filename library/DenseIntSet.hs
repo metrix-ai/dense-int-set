@@ -12,7 +12,7 @@ module DenseIntSet
   unions,
   -- ** Accessors
   capacity,
-  size,
+  population,
   lookup,
   -- *** Vectors
   presentElementsVector,
@@ -179,8 +179,8 @@ capacity (DenseIntSet x _) = x
 {-|
 /O(log n)/. Count the amount of present elements in the set.
 -}
-size :: DenseIntSet -> Int
-size (DenseIntSet _ vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
+population :: DenseIntSet -> Int
+population (DenseIntSet _ vec) = getSum (foldMap (Sum . popCount) (Unfoldr.vector vec))
 
 {-|
 /O(1)/. Check whether an int is a member of the set.
@@ -199,10 +199,10 @@ Extract the present elements into a vector.
 -}
 presentElementsVector :: GenericVector.Vector vector element => DenseIntSet -> (Int -> element) -> vector element
 presentElementsVector intSet intToIndex = let
-  vectorSize = size intSet
+  vectorPop = population intSet
   unfoldr = Unfoldr.zipWithIndex (presentElementsUnfoldr intSet)
   in runST $ do
-    mv <- MutableGenericVector.unsafeNew vectorSize
+    mv <- MutableGenericVector.unsafeNew vectorPop
     forM_ unfoldr $ \ (index, element) -> MutableGenericVector.unsafeWrite mv index (intToIndex element)
     GenericVector.unsafeFreeze mv
 
@@ -223,9 +223,9 @@ It is your responsibility to ensure that the indices in the set don't exceed the
 -}
 filterVector :: GenericVector.Vector vector a => DenseIntSet -> vector a -> vector a
 filterVector set vector = let
-  !newVectorSize = size set
+  !newVectorPop = population set
   in runST $ do
-    newVector <- MutableGenericVector.unsafeNew newVectorSize
+    newVector <- MutableGenericVector.unsafeNew newVectorPop
     forM_ (Unfoldr.zipWithIndex (vectorElementsUnfoldr vector set)) $ \ (newIndex, a) -> do
       MutableGenericVector.unsafeWrite newVector newIndex a
     GenericVector.unsafeFreeze newVector
