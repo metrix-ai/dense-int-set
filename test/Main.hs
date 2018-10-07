@@ -16,13 +16,22 @@ import qualified Data.HashSet as HashSet
 main =
   defaultMain $
   testGroup "All" $ let
-    listSetGen = listOf (choose (0, 9999)) <&> HashSet.fromList <&> HashSet.toList
-    listSetProperty name property = testProperty name $ forAll listSetGen $ property
+    setGen = listOf (choose (0, 99)) <&> HashSet.fromList
+    listSetGen = setGen <&> HashSet.toList
+    nonEmptyListOf gen = do
+      length <- choose (1, 99)
+      replicateM length gen
     in [
-      listSetProperty "List roundtrip" $ \ list ->
+      testProperty "List roundtrip" $ forAll listSetGen $ \ list ->
       sort list === sort (toList (fromList @DenseIntSet.DenseIntSet list))
       ,
-      listSetProperty "Inversion" $ \ list -> let
+      testProperty "Inversion" $ forAll listSetGen $ \ list -> let
         invertedList = enumFromTo 0 (foldl' max 0 list) \\ list
         in sort invertedList === sort (toList (DenseIntSet.invert (fromList list)))
+      ,
+      testProperty "Union" $ forAll (listOf listSetGen) $ \ lists ->
+      sort (foldr union [] lists) === sort (toList (DenseIntSet.unions (fmap fromList lists)))
+      ,
+      testProperty "Intersection" $ forAll (nonEmptyListOf listSetGen) $ \ lists ->
+      sort (foldl1' intersect lists) === sort (toList (DenseIntSet.intersections (fmap fromList lists)))
     ]

@@ -8,8 +8,8 @@ module DenseIntSet
   filteredIndices,
   invert,
   -- *** Composition
-  intersection,
-  union,
+  intersections,
+  unions,
   -- ** Accessors
   capacity,
   size,
@@ -22,10 +22,6 @@ module DenseIntSet
   presentElementsUnfoldr,
   absentElementsUnfoldr,
   vectorElementsUnfoldr,
-  -- * Composition
-  DenseIntSetComposition,
-  compose,
-  composeList,
 )
 where
 
@@ -92,25 +88,29 @@ foldable capacity foldable = let
       in MutableGenericVector.modify indexSetMVec (flip setBit bitIndex) wordIndex
     GenericVector.unsafeFreeze indexSetMVec
 
-{-|
-Interpret a composition as an intersection of sets.
--}
-intersection :: DenseIntSetComposition -> DenseIntSet
-intersection = zipWords (.&.) maxBound
+{-| Intersect multiple sets -}
+intersections :: [DenseIntSet] -> DenseIntSet
+intersections list = if null list
+  then DenseIntSet 0 mempty
+  else let
+    cap = foldl1' min (fmap capacity list)
+    vecs = fmap (\ (DenseIntSet _ vec) -> vec) list
+    in compositions (.&.) maxBound cap vecs
 
-{-|
-Interpret a composition as a union of sets.
--}
-union :: DenseIntSetComposition -> DenseIntSet
-union = zipWords (.|.) 0
+{-| Unite multiple sets -}
+unions :: [DenseIntSet] -> DenseIntSet
+unions list = let
+  cap = foldl' max 0 (fmap capacity list)
+  vecs = fmap (\ (DenseIntSet _ vec) -> vec) list
+  in compositions (.|.) 0 cap vecs
 
-zipWords :: (Word64 -> Word64 -> Word64) -> Word64 -> DenseIntSetComposition -> DenseIntSet
-zipWords append empty (DenseIntSetComposition minCapacity vecs) = DenseIntSet minCapacity $ runST $ let
-  wordsAmount = divCeiling minCapacity 64
+compositions :: (Word64 -> Word64 -> Word64) -> Word64 -> Int -> [UnboxedVector Word64] -> DenseIntSet
+compositions append empty capacity vecs = DenseIntSet capacity $ runST $ let
+  wordsAmount = divCeiling capacity 64
   wordIndexUnfoldr = Unfoldr.intsInRange 0 (pred wordsAmount)
   vecVec = Vector.fromList vecs
   vecUnfoldr = Unfoldr.foldable vecVec
-  wordUnfoldrAt wordIndex = fmap (flip GenericVector.unsafeIndex wordIndex) vecUnfoldr
+  wordUnfoldrAt wordIndex = vecUnfoldr >>= Unfoldr.foldable . flip (GenericVector.!?) wordIndex
   finalWordAt = foldr append empty . wordUnfoldrAt
   in do
     indexSetMVec <- MutableGenericVector.new wordsAmount
@@ -270,38 +270,3 @@ It is your responsibility to ensure that the indices in the set don't exceed the
 vectorElementsUnfoldr :: (GenericVector.Vector vector a) => vector a -> DenseIntSet -> Unfoldr a
 vectorElementsUnfoldr vec = fmap (vec GenericVector.!) . presentElementsUnfoldr
 
-
--- * Composition
--------------------------
-
-{-|
-Abstraction over the composition of sets,
-which is cheap to append and can be used for interpreted merging of sets.
--}
-data DenseIntSetComposition = DenseIntSetComposition !Int [UnboxedVector Word64]
-
-instance Semigroup DenseIntSetComposition where
-  (<>) (DenseIntSetComposition leftMinCapacity leftVecs) =
-    if null leftVecs
-      then id
-      else \ (DenseIntSetComposition rightMinCapacity rightVecs) -> if null rightVecs
-        then DenseIntSetComposition leftMinCapacity leftVecs
-        else DenseIntSetComposition (min leftMinCapacity rightMinCapacity) (leftVecs <> rightVecs)
-
-instance Monoid DenseIntSetComposition where
-  mempty = DenseIntSetComposition 0 []
-  mappend = (<>)
-
-{-|
-Lift a set into composition.
--}
-compose :: DenseIntSet -> DenseIntSetComposition
-compose (DenseIntSet capacity vec) = DenseIntSetComposition capacity (pure vec)
-
-{-|
-Lift a list of sets into composition.
--}
-composeList :: [DenseIntSet] -> DenseIntSetComposition
-composeList = let
-  unboxedVec (DenseIntSet _ unboxedVec) = unboxedVec
-  in \ list -> DenseIntSetComposition (foldr min 0 (fmap capacity list)) (fmap unboxedVec list)
